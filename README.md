@@ -1,4 +1,4 @@
-# E_cells_2023
+# E_cells_2024
 Code used for analyzing behavioral data and voltage imaging data from Brown et al., 2023.
 
 ## Dusk_behavior_suite
