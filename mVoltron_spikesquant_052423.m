@@ -79,32 +79,22 @@ for m = 1:numel(files)
     % Subtract the decay curve from the original signal
     photobleaching_corrected_neuron = nneuron - fitresult(time);
 
+    % Make csv file name
+    csv_filename = [filename '_csv.csv'];
+
+    % Export photobleaching corrected trace as .csv file
+    writematrix(photobleaching_corrected_neuron, csv_filename);
+
+    % turn fluorescent signal into z score
+    z_corr_neur = zscore(photobleaching_corrected_neuron);
+
     % Further filter the signal
     [b, a] = butter(2, 0.5);
-    nfneuron = filtfilt(b, a, double(photobleaching_corrected_neuron));
+    nfneuron = filtfilt(b, a, double(z_corr_neur));
 
     % Apply a bandpass filter to isolate 2-10Hz oscillations
     [b_bp, a_bp] = butter(2, [1, 8] / (0.5 * (1 / (exposure_in_ms / 1000))));
     oscillations = filtfilt(b_bp, a_bp, double(nfneuron));
-
-    % Adjust the spike detection method to account for the 2-10Hz oscillations
-    threshold = 2 * std(oscillations); % Adjust the threshold based on the oscillations
-
-    % Detect local maxima above the threshold
-    above_threshold_indices = find((nfneuron-oscillations) > threshold);
-    local_maxima_indices = find(diff(sign(diff(nfneuron))) == -2) + 1;
-    spike_indices = intersect(local_maxima_indices, above_threshold_indices);
-
-    % Calculate the spiking rate
-    total_spikes = length(spike_indices);
-    spiking_rate = total_spikes / length_in_seconds; % In Hz
-
-    % Identify oscillation peaks
-    [osc_peaks, ~] = findpeaks(oscillations, 'MinPeakDistance', floor(1000 / exposure_in_ms / 6));
-
-    % Calculate total number and average frequency of slow oscillations (2-6Hz)
-    num_osc = length(osc_peaks);
-    average_osc_freq = num_osc / length_in_seconds;
 
     % Calculate the number of rows needed to cover the entire recording in 5s increments
     rows = ceil(length_in_seconds / 5);
@@ -123,17 +113,6 @@ for i = 0:(rows - 1)
     
     % Plot the original signal
     plot(startPoint:endPoint, nfneuron(startPoint:endPoint))
-    hold on
-    
-    % Plot the 2-6Hz oscillations
-    plot(startPoint:endPoint, oscillations(startPoint:endPoint), 'Color', [0, 0.4470, 0.7410, 0.5])
-    
-    % Add raster marks for spike indicators
-    curr_spike_indices = spike_indices(spike_indices >= startPoint & spike_indices <= endPoint);
-    raster_height = max(nfneuron(startPoint:endPoint)) + abs(max(nfneuron(startPoint:endPoint)) * 0.1);
-    stem(curr_spike_indices, repmat(raster_height, size(curr_spike_indices)), ':', 'r', 'Marker', '|', 'LineStyle', 'none');
-    
-    hold off
     
     xticks(startPoint:1000 / exposure_in_ms * 5:endPoint)
     xticklabels(0:5:(endPoint - startPoint) * exposure_in_ms / 1000)
@@ -142,8 +121,7 @@ for i = 0:(rows - 1)
     ylabel('Fluorescence a.u.')
     
     if i == (rows - 1)
-        xlabel(['Time (s) | Spiking rate: ', num2str(spiking_rate), ' Hz | Oscillations: ', num2str(num_osc), ...
-                ' | Avg Osc Freq: ', num2str(average_osc_freq), ' Hz'])
+        xlabel(['Time (s)'])
         ax.Units = 'normalized';
         ax.Position = ax.Position + [0, -0.05, 0, 0.05]; % Adjust the position of the bottom subplot
     end
